@@ -1,0 +1,755 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>YouTube要約メーカー</title>
+<style>
+  :root {
+    --bg: #f4f6fb;
+    --card: #ffffff;
+    --ink: #0f1630;
+    --sub: #5b6380;
+    --line: #e3e7f2;
+    --hot1: #ff2e63;
+    --hot2: #ff8a00;
+    --cool: #2563ff;
+    --ok: #10b981;
+    --ng: #e11d48;
+    --grad: linear-gradient(120deg, var(--hot1), var(--hot2));
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+    line-height: 1.7;
+  }
+  header {
+    background: var(--ink); color: #fff; padding: 22px 16px 26px;
+    position: relative; overflow: hidden;
+  }
+  header::after {
+    content: ""; position: absolute; right: -60px; top: -60px; width: 220px; height: 220px;
+    border-radius: 50%; background: var(--grad); opacity: .9; filter: blur(2px);
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 0 16px; }
+  header .wrap { padding: 0; position: relative; z-index: 1; }
+  h1 { margin: 0; font-size: 26px; letter-spacing: .02em; font-weight: 800; }
+  h1 span { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  header p { margin: 4px 0 0; color: #c9cfe6; font-size: 14px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+    padding: 18px; margin: 16px 0; box-shadow: 0 6px 20px rgba(15,22,48,.05);
+  }
+  .card h2 { margin: 0 0 10px; font-size: 17px; display: flex; align-items: center; gap: 8px; }
+  .card h2 .bar { width: 6px; height: 18px; border-radius: 3px; background: var(--grad); display: inline-block; }
+  label { font-size: 13px; color: var(--sub); display: block; margin-bottom: 4px; }
+  textarea, input[type=text], input[type=password], select {
+    width: 100%; font: inherit; color: var(--ink); background: #fbfcff;
+    border: 2px solid var(--line); border-radius: 12px; padding: 10px 12px; outline: none;
+  }
+  textarea:focus, input:focus, select:focus { border-color: var(--cool); }
+  textarea { resize: vertical; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+  button {
+    font: inherit; font-weight: 700; border: 0; border-radius: 12px; padding: 12px 18px; cursor: pointer;
+    background: #eef1f9; color: var(--ink);
+  }
+  button.main { background: var(--grad); color: #fff; font-size: 17px; padding: 14px 26px; box-shadow: 0 8px 20px rgba(255,46,99,.3); }
+  button.blue { background: var(--cool); color: #fff; }
+  button:disabled { opacity: .5; cursor: default; }
+  .grow { flex: 1 1 auto; }
+  .status { margin-top: 12px; font-size: 14px; min-height: 1.5em; }
+  .status.ok { color: var(--ok); } .status.ng { color: var(--ng); }
+  .spin { display: inline-block; width: 14px; height: 14px; border: 3px solid var(--line); border-top-color: var(--hot1); border-radius: 50%; animation: s 1s linear infinite; vertical-align: -2px; margin-right: 6px; }
+  @keyframes s { to { transform: rotate(360deg); } }
+  .result h3 { font-size: 15px; margin: 18px 0 6px; padding-left: 10px; border-left: 4px solid var(--hot1); }
+  .result h3.neta { border-left-color: var(--hot2); }
+  .result h3.act { border-left-color: var(--cool); }
+  .result ul { margin: 0; padding-left: 1.3em; }
+  .result .title { font-size: 19px; font-weight: 800; margin: 0; }
+  .result .meta { color: var(--sub); font-size: 13px; word-break: break-all; }
+  .chip { display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 99px; background: #fff1e4; color: #c2410c; margin-right: 6px; }
+  .summary3 { background: #f6f8ff; border-radius: 12px; padding: 10px 14px; margin-top: 10px; }
+  .hist-item { display: flex; gap: 8px; align-items: center; border-top: 1px solid var(--line); padding: 8px 0; font-size: 14px; }
+  .hist-item:first-child { border-top: 0; }
+  .hist-item .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hist-item button { padding: 6px 10px; font-size: 13px; }
+  .tag { font-size: 11px; padding: 1px 7px; border-radius: 99px; background: #e9fbf3; color: #047857; white-space: nowrap; }
+  .tag.wait { background: #fff1f2; color: var(--ng); }
+  details summary { cursor: pointer; font-weight: 700; }
+  .small { font-size: 13px; color: var(--sub); }
+  .hidden { display: none; }
+  .draft { border-top: 2px dashed var(--line); margin-top: 18px; padding-top: 14px; }
+  .draft h3 { border-left-color: #7c3aed; }
+  .idea { display: flex; gap: 8px; align-items: flex-start; padding: 6px 8px; border-radius: 10px; cursor: pointer; font-size: 14px; color: var(--ink); margin: 0; }
+  .idea:hover { background: #f6f8ff; }
+  .idea input { margin-top: 6px; }
+  .mediaBtns button { flex: 1 1 160px; }
+  .draftOut { margin-top: 12px; }
+  .count { font-size: 13px; color: var(--sub); text-align: right; }
+  .count.over { color: var(--ng); font-weight: 700; }
+  footer { text-align: center; color: var(--sub); font-size: 12px; padding: 10px 0 30px; }
+  @media (max-width: 520px) {
+    h1 { font-size: 22px; }
+    button.main { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1><span>YouTube</span>要約メーカー</h1>
+    <p>URLを貼って押すだけ。要点・副業ネタ・第2の脳ミソ用メモが一気にできる</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- 最初の設定 -->
+  <section class="card" id="setupCard">
+    <details id="setupBox">
+      <summary>⚙ 設定(APIキー・保存先)</summary>
+      <div style="margin-top:12px">
+        <label for="apiKey">Gemini APIキー(Google AI Studioで作った鍵。この端末の中にだけ保存されます)</label>
+        <input type="password" id="apiKey" placeholder="ここに貼りつけ" autocomplete="off">
+        <div class="row" style="margin-top:10px">
+          <div class="grow">
+            <label for="model">使うAI(ふだんはそのままでOK)</label>
+            <select id="model">
+              <option value="gemini-3.8-flash">gemini-3.8-flash(おすすめ)</option>
+              <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite(軽い・速い)</option>
+              <option value="gemini-3.6-flash">gemini-3.6-flash</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <button class="blue" id="saveSetting">設定を保存</button>
+          <button id="pickDir">保存先フォルダを選ぶ(パソコンのみ)</button>
+        </div>
+        <p class="small" id="dirInfo">保存先:まだ選ばれていません</p>
+      </div>
+    </details>
+  </section>
+
+  <!-- 入力 -->
+  <section class="card">
+    <h2><span class="bar"></span>YouTubeのURL</h2>
+    <label for="urls">1行に1本。何本でもOK(上から順に要約します)</label>
+    <textarea id="urls" rows="3" placeholder="https://www.youtube.com/watch?v=..."></textarea>
+    <div class="row" style="margin-top:8px">
+      <button id="pasteBtn">📋 貼り付け</button>
+      <button id="openYt">YouTubeを開く</button>
+    </div>
+    <label for="memo" style="margin-top:10px">ひとことメモ(任意。なぜ見たか・感想など。保存するmdに「自分のメモ」として入ります)</label>
+    <input type="text" id="memo" placeholder="例:日報づくりに使えそうで見た">
+    <div class="row">
+      <button class="main" id="go">▶ 要約する</button>
+    </div>
+    <div class="status" id="status"></div>
+  </section>
+
+  <!-- 結果 -->
+  <section class="card result hidden" id="resultCard">
+    <div id="resultBody"></div>
+    <div class="row">
+      <button class="main" id="saveBtn">💾 第2の脳ミソに保存</button>
+      <button id="copyBtn">mdをコピー</button>
+    </div>
+    <div class="status" id="saveStatus"></div>
+
+    <!-- 投稿の下書き -->
+    <div class="draft">
+      <h3 class="neta" style="border-left-color:#7c3aed">✍ 投稿・記事の下書きを作る</h3>
+      <p class="small">動画から借りるのは「考え方1つ」だけ。動画の言い回しは使わず、全部自分の言葉に言い換えます(出典なしで出すため)。</p>
+      <label>① 使う考え方を1つ選ぶ</label>
+      <div id="ideaList"></div>
+      <label for="myView" style="margin-top:10px">② 自分の体験・意見(ここに書いたことだけが体験として入ります。空なら「＿＿」の穴あきで作ります)</label>
+      <textarea id="myView" rows="3" placeholder="例:夜勤明けに日報をClaudeに頼んだら、最初の案はズレてた。ダメ出しを3回したら使える形になった"></textarea>
+      <label style="margin-top:10px">③ どこに出す?</label>
+      <div class="row mediaBtns" style="margin-top:0">
+        <button class="blue" data-media="x">𝕏 X用</button>
+        <button class="blue" data-media="th_ai">🧵 Threads用(仕事×AI)</button>
+        <button class="blue" data-media="th_papa">🧵 Threads用(暮らし)</button>
+        <button class="blue" data-media="note">📝 note</button>
+      </div>
+      <div class="status" id="draftStatus"></div>
+      <div class="draftOut hidden" id="draftOut">
+        <label for="draftText" id="draftLabel">下書き(ここで直してOK)</label>
+        <textarea id="draftText" rows="10"></textarea>
+        <div class="count" id="draftCount"></div>
+        <div class="row">
+          <button id="draftCopy">📋 コピー</button>
+          <button id="draftSave">💾 要約mdに下書きを足す</button>
+        </div>
+        <p class="small">投稿は自分の手で貼ってね(自動投稿は規約違反)。出す前に、Claudeに「この下書きをチェックして」と渡すと安心です。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 履歴 -->
+  <section class="card">
+    <h2><span class="bar"></span>あとで保存する箱・履歴</h2>
+    <p class="small">要約したものは、この端末に30件まで残ります。「未保存」はまだ第2の脳ミソに入っていない分です。スマホで要約した分は「未保存URLをコピー」→パソコンのこのアプリに貼って要約し直すと保存できます。</p>
+    <div id="hist"></div>
+    <div class="row">
+      <button id="copyPending">未保存URLをまとめてコピー</button>
+      <button id="saveAllPending">未保存をまとめて保存(パソコン)</button>
+    </div>
+    <div class="status" id="histStatus"></div>
+  </section>
+
+</main>
+<footer>YouTubeの中身はGoogle公式のGemini APIで読んでいます(字幕の抜き出しはしていません)</footer>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const LS_KEY = "ytsum.apiKey", LS_MODEL = "ytsum.model", LS_HIST = "ytsum.history";
+
+  // ---------- 小物 ----------
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch { return d; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  };
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const today = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+  function setStatus(el, msg, kind) {
+    el.className = "status" + (kind ? " " + kind : "");
+    el.innerHTML = msg;
+  }
+
+  // YouTubeのURLを「watch?v=ID」の形にそろえる
+  function normalizeUrl(raw) {
+    let u;
+    try { u = new URL(raw.trim()); } catch { return null; }
+    const host = u.hostname.replace(/^www\.|^m\./, "");
+    let id = null;
+    if (host === "youtu.be") id = u.pathname.slice(1).split("/")[0];
+    else if (host === "youtube.com" || host === "music.youtube.com") {
+      if (u.pathname === "/watch") id = u.searchParams.get("v");
+      else {
+        const m = u.pathname.match(/^\/(shorts|live|embed)\/([^/?]+)/);
+        if (m) id = m[2];
+      }
+    }
+    if (!id || !/^[\w-]{6,}$/.test(id)) return null;
+    return "https://www.youtube.com/watch?v=" + id;
+  }
+
+  // ---------- 設定 ----------
+  $("apiKey").value = store.get(LS_KEY, "");
+  $("model").value = store.get(LS_MODEL, "gemini-3.8-flash");
+  if (!$("apiKey").value) $("setupBox").open = true;
+  $("saveSetting").onclick = () => {
+    store.set(LS_KEY, $("apiKey").value.trim());
+    store.set(LS_MODEL, $("model").value);
+    setStatus($("status"), "設定を保存しました", "ok");
+    $("setupBox").open = false;
+  };
+
+  // ---------- 保存先フォルダ(パソコンのChrome/Edgeだけ) ----------
+  const canPickDir = "showDirectoryPicker" in window;
+  let dirHandle = null;
+  const idb = {
+    open() {
+      return new Promise((res, rej) => {
+        const r = indexedDB.open("ytsum", 1);
+        r.onupgradeneeded = () => r.result.createObjectStore("kv");
+        r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+      });
+    },
+    async get(k) {
+      const db = await this.open();
+      return new Promise((res) => { const q = db.transaction("kv").objectStore("kv").get(k); q.onsuccess = () => res(q.result); q.onerror = () => res(null); });
+    },
+    async set(k, v) {
+      const db = await this.open();
+      return new Promise((res) => { const t = db.transaction("kv", "readwrite"); t.objectStore("kv").put(v, k); t.oncomplete = () => res(); t.onerror = () => res(); });
+    },
+  };
+  function showDir() {
+    $("dirInfo").textContent = !canPickDir
+      ? "保存先:この端末ではフォルダに直接保存できません。保存ボタンで「共有」または「ダウンロード」になります"
+      : dirHandle ? `保存先:「${dirHandle.name}」フォルダ` : "保存先:まだ選ばれていません(第2の脳ミソ\\01_副業\\00_全体共通\\YouTube要約 を選んでください)";
+  }
+  if (!canPickDir) $("pickDir").classList.add("hidden");
+  (async () => { if (canPickDir) { try { dirHandle = await idb.get("dir"); } catch {} } showDir(); })();
+  $("pickDir").onclick = async () => {
+    try {
+      dirHandle = await window.showDirectoryPicker({ id: "ytsum", mode: "readwrite" });
+      await idb.set("dir", dirHandle);
+      showDir();
+    } catch {}
+  };
+  async function ensureDir() {
+    if (!dirHandle) {
+      dirHandle = await window.showDirectoryPicker({ id: "ytsum", mode: "readwrite" });
+      await idb.set("dir", dirHandle); showDir();
+    }
+    const opt = { mode: "readwrite" };
+    if ((await dirHandle.queryPermission(opt)) !== "granted" && (await dirHandle.requestPermission(opt)) !== "granted") {
+      throw new Error("フォルダへの書き込みが許可されませんでした");
+    }
+    // 前に選んだフォルダが消えた・名前が変わったときは、選び直してもらう
+    try { await dirHandle.keys().next(); }
+    catch (e) {
+      if (e && e.name === "NotFoundError") {
+        dirHandle = null; showDir();
+        return ensureDir();
+      }
+      throw e;
+    }
+    return dirHandle;
+  }
+
+  // ---------- Gemini ----------
+  const PROMPT = `あなたは、YouTube動画の内容を整理するアシスタントです。この動画を見て、日本語でまとめてください。
+
+読む人:40代の会社員(夜勤・交代勤務あり)。副業でSNS・note・ブログをやっていて、AIで副業を効率化したい。専門用語は苦手なので、中学生でも分かる言葉で書く。
+
+ルール:
+- 動画で実際に言っていることだけを書く。言っていないことを足さない
+- 数字・固有名詞は動画のとおりに書く
+- 副業ネタ・投稿のタネは「この動画で学んだこと」として書ける形にする。読む人が実際にやったことにしない(体験の捏造をしない)
+- 専門用語を使うときは、カッコでひとこと言い換えを添える`;
+
+  const SCHEMA = {
+    type: "OBJECT",
+    properties: {
+      title: { type: "STRING", description: "動画のタイトル(分からなければ内容から短く付ける)" },
+      channel: { type: "STRING", description: "チャンネル名(分からなければ空)" },
+      summary3: { type: "ARRAY", items: { type: "STRING" }, description: "3行サマリー。ちょうど3つ" },
+      points: { type: "ARRAY", items: { type: "STRING" }, description: "要点の箇条書き。5〜10個" },
+      neta: {
+        type: "ARRAY",
+        description: "副業に使えそうなネタ・投稿のタネ。3〜5個",
+        items: {
+          type: "OBJECT",
+          properties: {
+            media: { type: "STRING", description: "Threads / X / note / ブログ のどれか" },
+            idea: { type: "STRING", description: "投稿のタネ(1〜2文)" },
+          },
+          required: ["media", "idea"],
+        },
+      },
+      actions: { type: "ARRAY", items: { type: "STRING" }, description: "自分の副業ですぐ試せること。1〜3個" },
+      tags: { type: "ARRAY", items: { type: "STRING" }, description: "テーマのタグ。日本語で2〜4個、#なし" },
+    },
+    required: ["title", "summary3", "points", "neta", "actions", "tags"],
+  };
+
+  async function summarize(url, apiKey, model) {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+      body: JSON.stringify({
+        contents: [{ parts: [{ file_data: { file_uri: url } }, { text: PROMPT }] }],
+        generationConfig: { responseMimeType: "application/json", responseSchema: SCHEMA },
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = data?.error?.message || res.statusText;
+      if (res.status === 400 && /API key/i.test(msg)) throw new Error("APIキーが正しくないようです。設定を見直してください");
+      if (res.status === 429) throw new Error("今日の無料枠を使い切ったか、短い時間に送りすぎました。少し待ってから試してください");
+      if (res.status === 403) throw new Error("この動画は読めませんでした(非公開・限定公開・年齢制限など)");
+      throw new Error(`Geminiでエラー(${res.status}):${msg}`);
+    }
+    const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "";
+    try { return JSON.parse(text); } catch { throw new Error("要約の形がくずれて返ってきました。もう一度押してください"); }
+  }
+
+  // ---------- md(第2の脳ミソの書き方:3行サマリー→本文→出典) ----------
+  function toMarkdown(r) {
+    const s = r.data;
+    const L = [];
+    L.push("---");
+    L.push(`date: ${r.date}`);
+    L.push(`source: ${r.url}`);
+    L.push(`tags: [YouTube要約${(s.tags || []).map((t) => ", " + t).join("")}]`);
+    L.push("---", "");
+    L.push(`# ${s.title}`, "");
+    L.push("**3行サマリー**");
+    (s.summary3 || []).slice(0, 3).forEach((x) => L.push(`- ${x}`));
+    L.push("", "## 要点");
+    (s.points || []).forEach((x) => L.push(`- ${x}`));
+    L.push("", "## 副業ネタ・投稿のタネ");
+    (s.neta || []).forEach((n) => L.push(`- 【${n.media}】${n.idea}`));
+    L.push("", "## 自分の副業で試すこと");
+    (s.actions || []).forEach((x) => L.push(`- [ ] ${x}`));
+    L.push("", "## 自分のメモ");
+    L.push(r.memo ? r.memo : "- (見た感想・やってみた結果をここに足していく)");
+    if (r.drafts && r.drafts.length) L.push("", DRAFT_HEAD, ...r.drafts.map(draftBlock));
+    L.push("", "## 関連");
+    L.push("- [[YouTube要約の一覧]]");
+    L.push("", "## 出典");
+    L.push(`- ${s.channel ? s.channel + "「" + s.title + "」" : s.title} ${r.url}`);
+    L.push("");
+    return L.join("\n");
+  }
+  function fileName(r) {
+    if (r.fileName) return r.fileName;
+    const t = (r.data.title || "YouTube要約").replace(/[\\/:*?"<>|#\[\]\r\n]/g, "").replace(/\s+/g, " ").trim().slice(0, 40);
+    return `${r.date}_${t}.md`;
+  }
+  // 同じ名前で別の動画のファイルがあれば、動画IDを付けて別名にする
+  async function uniqueName(dir, r) {
+    const base = fileName(r);
+    try {
+      const old = await (await (await dir.getFileHandle(base)).getFile()).text();
+      if (!old.includes(r.url)) r.fileName = base.replace(/\.md$/, `_${new URL(r.url).searchParams.get("v")}.md`);
+    } catch {}
+    return fileName(r);
+  }
+
+  // ---------- 履歴 ----------
+  function loadHist() { try { return JSON.parse(store.get(LS_HIST, "[]")); } catch { return []; } }
+  function saveHist(h) { store.set(LS_HIST, JSON.stringify(h.slice(0, 30))); }
+  function renderHist() {
+    const h = loadHist();
+    $("hist").innerHTML = h.length ? h.map((r, i) => `
+      <div class="hist-item">
+        <span class="tag ${r.saved ? "" : "wait"}">${r.saved ? "保存済み" : "未保存"}</span>
+        <span class="t" title="${esc(r.data.title)}">${esc(r.date)} ${esc(r.data.title)}</span>
+        <button data-i="${i}">開く</button>
+      </div>`).join("") : '<p class="small">まだありません</p>';
+    $("hist").querySelectorAll("button").forEach((b) => (b.onclick = () => show(loadHist()[+b.dataset.i])));
+  }
+
+  // ---------- 表示 ----------
+  let current = null;
+  function show(r) {
+    current = r;
+    const s = r.data;
+    $("resultBody").innerHTML = `
+      <p class="title">${esc(s.title)}</p>
+      <div class="meta">${s.channel ? esc(s.channel) + " ・ " : ""}<a href="${esc(r.url)}" target="_blank" rel="noopener">${esc(r.url)}</a></div>
+      <div class="summary3"><ul>${(s.summary3 || []).map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>
+      <h3>要点</h3><ul>${(s.points || []).map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
+      <h3 class="neta">副業ネタ・投稿のタネ</h3><ul>${(s.neta || []).map((n) => `<li><span class="chip">${esc(n.media)}</span>${esc(n.idea)}</li>`).join("")}</ul>
+      <h3 class="act">自分の副業で試すこと</h3><ul>${(s.actions || []).map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`;
+    $("ideaList").innerHTML = (s.points || []).map((x, i) => `
+      <label class="idea"><input type="radio" name="idea" value="${i}"${i === 0 ? " checked" : ""}><span>${esc(x)}</span></label>`).join("");
+    $("myView").value = "";
+    $("draftOut").classList.add("hidden");
+    setStatus($("draftStatus"), "");
+    $("resultCard").classList.remove("hidden");
+    setStatus($("saveStatus"), r.saved ? "この要約は保存済みです" : "", r.saved ? "ok" : "");
+  }
+
+  function markSaved(r) {
+    r.saved = true;
+    const h = loadHist();
+    const i = h.findIndex((x) => x.id === r.id);
+    if (i >= 0) { h[i].saved = true; if (r.fileName) h[i].fileName = r.fileName; saveHist(h); }
+    renderHist();
+  }
+
+  // ---------- 保存 ----------
+  async function writeToDir(r) {
+    const dir = await ensureDir();
+    const fh = await dir.getFileHandle(await uniqueName(dir, r), { create: true });
+    const w = await fh.createWritable();
+    await w.write(toMarkdown(r)); await w.close();
+    await updateIndex(dir, r);
+  }
+  // 一覧ファイル(YouTube要約の一覧.md)に1行足す
+  async function updateIndex(dir, r) {
+    const name = "YouTube要約の一覧.md";
+    let text = "";
+    try { text = await (await (await dir.getFileHandle(name)).getFile()).text(); } catch {}
+    if (!text) text = "# YouTube要約の一覧\n\nYouTube要約メーカーで保存した動画の要約。新しいものが上。\n";
+    const link = `- ${r.date} [[${fileName(r).replace(/\.md$/, "")}]]`;
+    if (!text.includes(link)) {
+      const lines = text.split("\n");
+      const at = lines.findIndex((l) => l.startsWith("- "));
+      if (at >= 0) lines.splice(at, 0, link); else lines.push(link);
+      text = lines.join("\n");
+    }
+    const w = await (await dir.getFileHandle(name, { create: true })).createWritable();
+    await w.write(text); await w.close();
+  }
+  async function shareOrDownload(r) {
+    const name = fileName(r), md = toMarkdown(r);
+    const file = new File([md], name, { type: "text/markdown" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: name });
+      return "共有しました";
+    }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(file); a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    return "ダウンロードしました";
+  }
+
+  $("saveBtn").onclick = async () => {
+    if (!current) return;
+    try {
+      if (canPickDir) {
+        await writeToDir(current);
+        markSaved(current);
+        setStatus($("saveStatus"), `保存しました:${esc(fileName(current))}`, "ok");
+      } else {
+        const msg = await shareOrDownload(current);
+        setStatus($("saveStatus"), `${msg}。第2の脳ミソに入れるには、パソコンでURLを貼って要約し直して保存してください`, "ok");
+      }
+    } catch (e) {
+      if (e && e.name === "AbortError") return;
+      setStatus($("saveStatus"), "保存できませんでした:" + esc(e.message || e), "ng");
+    }
+  };
+  $("copyBtn").onclick = async () => {
+    if (!current) return;
+    try { await navigator.clipboard.writeText(toMarkdown(current)); setStatus($("saveStatus"), "mdをコピーしました", "ok"); }
+    catch { setStatus($("saveStatus"), "コピーできませんでした", "ng"); }
+  };
+  $("copyPending").onclick = async () => {
+    const urls = [...new Set(loadHist().filter((r) => !r.saved).map((r) => r.url))];
+    if (!urls.length) return setStatus($("histStatus"), "未保存はありません", "ok");
+    try { await navigator.clipboard.writeText(urls.join("\n")); setStatus($("histStatus"), `${urls.length}件のURLをコピーしました`, "ok"); }
+    catch { setStatus($("histStatus"), "コピーできませんでした", "ng"); }
+  };
+  $("saveAllPending").onclick = async () => {
+    if (!canPickDir) return setStatus($("histStatus"), "まとめて保存はパソコンだけです", "ng");
+    const pending = loadHist().filter((r) => !r.saved);
+    if (!pending.length) return setStatus($("histStatus"), "未保存はありません", "ok");
+    try {
+      for (const r of pending) { await writeToDir(r); markSaved(r); }
+      setStatus($("histStatus"), `${pending.length}件を保存しました`, "ok");
+    } catch (e) {
+      if (e && e.name === "AbortError") return;
+      setStatus($("histStatus"), "保存できませんでした:" + esc(e.message || e), "ng");
+    }
+  };
+
+  // ---------- 投稿・記事の下書き ----------
+  // 動画から借りるのは「考え方1つ」だけ。言い回しは全部言い換えて、自分の考えとして書く(出典なしで出すため)
+  const MEDIA = {
+    x: {
+      name: "X(仕事×AIの発信)", max: 140,
+      rule: `- Xの投稿1本。全文(改行・絵文字・ハッシュタグ込み)140字以内を必ず守る
+- 軸:製造業20年・交代勤務の2児パパが、日報・報告書・改善提案など現場の「書く仕事」をAI(主にClaude)でラクにした実録。読者は製造業の現場の人・班長/リーダー
+- 言い切りで始める。短く、結論から
+- 副業の始め方・稼ぎ方を教える投稿にしない。一般論だけにしない
+- 一人称は「私」`,
+    },
+    th_ai: {
+      name: "Threads(仕事×AIの発信)", min: 300, max: 500,
+      rule: `- Threadsの投稿1本。300〜500字の会話調。語り口は「実録・等身大・丁寧」。あおり型の言い切りは使わない
+- 軸:製造業20年・交代勤務の2児パパが、現場の仕事と家のことをAI(主にClaude)でちょっとラクにできないか試した記録。うまくいかなかった話もそのまま
+- 流れは「場面 → AIに聞いてみたこと・やったこと → 結果・分かったこと」
+- 本文にリンクや「プロフィールから」の誘導を入れない
+- 最後に、1行で答えられる質問(二択・数字・場面)を入れてもよい。「返信で教えてください」だけの質問はしない`,
+    },
+    th_papa: {
+      name: "Threads(暮らしの発信)", max: 200,
+      rule: `- Threadsの投稿1本。3〜5行で終わらせる(長文にしない)
+- 立場:製造業20年・夜勤ありの交代勤務の40代パパ。夜勤・交代勤務の生活や、製造業の現場の困りごとの目線で書く
+- 1行目は「夜勤パパにしか書けない1行」(時刻・場面・体の感覚)から始める。あいさつ・一般論で始めない
+- 読者を励ます文章ではなく、自分の実況・自分の考えを書く
+- 「〜ですよね」は1回まで。「よかったら返信で教えてください」「同じ人、きっといます」は使わない
+- 1文ごとに改行して行数を水増ししない。絵文字は0〜1個
+- 商品の紹介はしない`,
+    },
+    note: {
+      name: "note(記事の下書き)", min: 1200, max: 2500,
+      rule: `- noteの記事の下書き。1行目に「タイトル:〇〇」、そのあと本文(1200〜2500字)
+- 見出しは「## 」で3〜4個。最初に結論、最後に「自分はこれからどうするか」で締める
+- 中学生でも分かる言葉。段落は2〜4行ごとに空行で区切る
+- 有料部分・値段・リンクは入れない`,
+    },
+  };
+  const DRAFT_HEAD = "## 投稿の下書き(未チェック・出す前にClaudeにチェックしてもらう)";
+  function draftBlock(d) {
+    return `### ${d.media} ${d.date}\n- 使った考え方:${d.idea}\n\n\`\`\`\n${d.text}\n\`\`\`\n`;
+  }
+
+  function draftPrompt(m, idea, view, extra) {
+    return `あなたは、ある40代の会社員の発信を手伝うライターです。下の「考え方」を、この人自身の考えとして書いた下書きを作ってください。
+
+書く人:製造業20年・夜勤ありの交代勤務、二児のパパ(男の子2人)。副業でSNSとnoteをやっている。性格は明るく前向きで、何があってもくじけず続ける。
+出す場所:${m.name}
+
+【考え方(これ1つだけを使う)】
+${idea}
+
+【本人の体験・意見(書いてある事実だけを使う)】
+${view || "(なし)"}
+
+守ること:
+- 使うのは上の「考え方」1つだけ。ほかの話・数字・例を足さない
+- 考え方は、元の言い回しを使わず、まるごと自分の言葉に言い換える。特徴的な言葉・名前の付いた手法名・決めゼリフ・キャッチコピーは使わず、ふつうの言葉で言い直す
+- 動画・本・人から聞いた話だとは書かない。チャンネル名・人名・「〜によると」は書かない。この人の考えとして書く
+- ただし「自分が考え出した」「自分が発見した」とは書かない
+- 体験は【本人の体験・意見】に書いてあることだけを使う。書いていない体験・数字・結果を作らない。体験が「(なし)」なら、体験が入る所は「＿＿(ここに自分の体験)」の穴あきにする
+- 試したと書いていないことを「やってみた」「〜できた」と書かない
+- 「絶対」「誰でも」「確実に」「ノーリスク」などの言い過ぎ、「超有料級」「ぶっちゃけ」などの使い古された言い方は使わない
+- 「〜ありませんか?」で始めたり終わったりしない。三点リーダ(…)を使わない
+- 会社名・製品名・工場の場所・住んでいる地域・子どもの学年や年齢は書かない
+- 中学生でも分かる言葉で書く。専門用語にはひとこと言い換えを添える
+${m.rule}${extra ? "\n" + extra : ""}
+
+下書きの本文だけを返してください。前置き・説明・カッコ書きの注意は付けない。`;
+  }
+
+  async function generateText(prompt, apiKey, model) {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      if (res.status === 429) throw new Error("今日の無料枠を使い切ったか、短い時間に送りすぎました。少し待ってから試してください");
+      throw new Error(`Geminiでエラー(${res.status}):${data?.error?.message || res.statusText}`);
+    }
+    return (data?.candidates?.[0]?.content?.parts?.map((p) => p.text || "").join("") || "")
+      .replace(/^```[a-z]*\n?|\n?```$/g, "").replace(/…+/g, "。").replace(/。{2,}/g, "。").trim();
+  }
+
+  let currentDraft = null;
+  function showCount() {
+    const t = $("draftText").value, m = MEDIA[currentDraft?.key];
+    if (!m) return;
+    const n = [...t].length;
+    const over = n > m.max || (m.min && n < m.min);
+    $("draftCount").className = "count" + (over ? " over" : "");
+    $("draftCount").textContent = `${n}字(目安 ${m.min ? m.min + "〜" : ""}${m.max}字)${over ? " ← 目安を外れています" : ""}`;
+  }
+  $("draftText").oninput = () => { if (currentDraft) currentDraft.text = $("draftText").value; showCount(); };
+
+  document.querySelectorAll(".mediaBtns button").forEach((b) => (b.onclick = async () => {
+    if (!current) return;
+    const apiKey = store.get(LS_KEY, ""), model = store.get(LS_MODEL, "") || $("model").value;
+    if (!apiKey) { $("setupBox").open = true; return setStatus($("draftStatus"), "先に⚙設定でAPIキーを入れてください", "ng"); }
+    const sel = document.querySelector('input[name="idea"]:checked');
+    if (!sel) return setStatus($("draftStatus"), "使う考え方を1つ選んでください", "ng");
+    const key = b.dataset.media, m = MEDIA[key];
+    const idea = current.data.points[+sel.value];
+    const view = $("myView").value.trim();
+    const btns = document.querySelectorAll(".mediaBtns button");
+    btns.forEach((x) => (x.disabled = true));
+    try {
+      setStatus($("draftStatus"), `<span class="spin"></span>${esc(m.name)}の下書きを作っています…`);
+      let text = await generateText(draftPrompt(m, idea, view), apiKey, model);
+      // 文字数が上限を超えたら、1回だけ短くし直す
+      if ([...text].length > m.max) {
+        setStatus($("draftStatus"), `<span class="spin"></span>長すぎたので短くし直しています…`);
+        text = await generateText(draftPrompt(m, idea, view, `- 前に作った下書きは${[...text].length}字で長すぎた。必ず${m.max}字以内にする`), apiKey, model);
+      }
+      currentDraft = { key, media: m.name, idea, text, date: today() };
+      $("draftLabel").textContent = `${m.name}の下書き(ここで直してOK)`;
+      $("draftText").value = text;
+      $("draftOut").classList.remove("hidden");
+      showCount();
+      setStatus($("draftStatus"), view ? "できました。直したいところはそのまま書き換えてOK" : "できました。「＿＿」の所に自分の体験を入れてください", "ok");
+    } catch (e) {
+      setStatus($("draftStatus"), "作れませんでした:" + esc(e.message || e), "ng");
+    } finally {
+      btns.forEach((x) => (x.disabled = false));
+    }
+  }));
+
+  $("draftCopy").onclick = async () => {
+    try { await navigator.clipboard.writeText($("draftText").value); setStatus($("draftStatus"), "コピーしました。投稿画面に自分で貼ってね", "ok"); }
+    catch { setStatus($("draftStatus"), "コピーできませんでした", "ng"); }
+  };
+
+  // 要約mdの「関連」の前に下書きを足す(すでにあるメモは消さない)
+  $("draftSave").onclick = async () => {
+    if (!current || !currentDraft) return;
+    if (!canPickDir) return setStatus($("draftStatus"), "mdに足すのはパソコンだけです。スマホは「コピー」を使ってね", "ng");
+    const d = { ...currentDraft, text: $("draftText").value.trim() };
+    try {
+      const dir = await ensureDir();
+      let text = null;
+      if (current.saved) {
+        try { text = await (await (await dir.getFileHandle(fileName(current))).getFile()).text(); } catch {}
+      }
+      if (text === null) {
+        // まだ保存していない要約なら、下書きごと保存する
+        current.drafts = [...(current.drafts || []), d];
+        await writeToDir(current);
+        markSaved(current);
+      } else {
+        const block = draftBlock(d);
+        const add = text.includes(DRAFT_HEAD) ? block : `${DRAFT_HEAD}\n${block}`;
+        const at = text.indexOf("\n## 関連");
+        text = at >= 0 ? text.slice(0, at + 1) + add + "\n" + text.slice(at + 1) : text.trimEnd() + "\n\n" + add;
+        const w = await (await dir.getFileHandle(fileName(current))).createWritable();
+        await w.write(text); await w.close();
+      }
+      setStatus($("draftStatus"), `「${esc(fileName(current))}」に下書きを足しました`, "ok");
+    } catch (e) {
+      if (e && e.name === "AbortError") return;
+      setStatus($("draftStatus"), "保存できませんでした:" + esc(e.message || e), "ng");
+    }
+  };
+
+  // ---------- 貼り付け・YouTubeを開く ----------
+  $("pasteBtn").onclick = async () => {
+    try {
+      const t = (await navigator.clipboard.readText()).trim();
+      if (!t) return setStatus($("status"), "コピーされた文字がありません", "ng");
+      const box = $("urls");
+      box.value = box.value.trim() ? box.value.trim() + "\n" + t : t;
+      setStatus($("status"), normalizeUrl(t) ? "URLを貼りました。「▶ 要約する」を押してください" : "貼りましたが、YouTubeのURLではないようです", normalizeUrl(t) ? "ok" : "ng");
+    } catch {
+      setStatus($("status"), "貼り付けが許可されませんでした。枠をクリックして Ctrl+V で貼ってください", "ng");
+    }
+  };
+  $("openYt").onclick = () => {
+    // パソコンは左側に別の窓で、スマホはふつうに開く
+    const wide = window.screen.availWidth >= 900;
+    if (wide) {
+      const w = Math.round(window.screen.availWidth * 0.6), h = window.screen.availHeight;
+      const win = window.open("https://www.youtube.com/", "ytsum_youtube", `popup=yes,left=0,top=0,width=${w},height=${h}`);
+      if (win) return;
+    }
+    window.open("https://www.youtube.com/", "_blank", "noopener");
+  };
+
+  // ---------- 要約ボタン ----------
+  $("go").onclick = async () => {
+    const apiKey = store.get(LS_KEY, "") || $("apiKey").value.trim();
+    const model = store.get(LS_MODEL, "") || $("model").value;
+    if (!apiKey) { $("setupBox").open = true; return setStatus($("status"), "先に⚙設定でAPIキーを入れてください", "ng"); }
+    const lines = $("urls").value.split(/\s+/).filter(Boolean);
+    if (!lines.length) return setStatus($("status"), "URLを貼ってください", "ng");
+    const urls = [], bad = [];
+    lines.forEach((l) => { const u = normalizeUrl(l); u ? urls.push(u) : bad.push(l); });
+    if (!urls.length) return setStatus($("status"), "YouTubeのURLが見つかりませんでした", "ng");
+
+    $("go").disabled = true;
+    const memo = $("memo").value.trim();
+    let done = 0; const errors = [];
+    for (const url of urls) {
+      setStatus($("status"), `<span class="spin"></span>動画を読んでいます…(${done + 1}/${urls.length})長い動画だと1分ほどかかります`);
+      try {
+        const data = await summarize(url, apiKey, model);
+        const r = { id: Date.now() + "-" + Math.random().toString(36).slice(2, 7), url, date: today(), memo, data, saved: false };
+        const h = loadHist(); h.unshift(r); saveHist(h); renderHist();
+        show(r); done++;
+      } catch (e) {
+        errors.push(`${esc(url)}:${esc(e.message || e)}`);
+      }
+    }
+    $("go").disabled = false;
+    const parts = [];
+    if (done) parts.push(`${done}本の要約ができました${urls.length > 1 ? "(全部「あとで保存する箱」に入っています)" : ""}`);
+    if (bad.length) parts.push(`YouTubeのURLではない行をとばしました:${bad.map(esc).join(" / ")}`);
+    errors.forEach((e) => parts.push(e));
+    setStatus($("status"), parts.join("<br>"), errors.length && !done ? "ng" : "ok");
+    if (done) { $("urls").value = ""; $("memo").value = ""; }
+  };
+
+  renderHist();
+})();
+</script>
+</body>
+</html>

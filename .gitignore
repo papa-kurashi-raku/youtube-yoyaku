@@ -1,0 +1,4 @@
+# 公開するのはアプリ本体(index.html)だけ。使い方・パソコン用の起動ファイルは公開しない
+*
+!index.html
+!.gitignore
