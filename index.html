@@ -185,6 +185,18 @@
         </div>
         <p class="small">投稿は自分の手で貼ってね(自動投稿は規約違反)。出す前に、Claudeに「この下書きをチェックして」と渡すと安心です。</p>
       </div>
+
+      <label style="margin-top:16px">④ 今すぐ出さないなら、ネタとしてストック(①の考え方と②の体験が入ります。土曜の週次でClaudeが投稿にします)</label>
+      <div class="row stockTo" style="margin-top:0">
+        <label class="idea"><input type="checkbox" value="x" checked><span>𝕏 X(仕事×AI)</span></label>
+        <label class="idea"><input type="checkbox" value="th_ai" checked><span>🧵 Threads(仕事×AI)</span></label>
+        <label class="idea"><input type="checkbox" value="th_papa"><span>🧵 Threads(暮らし)</span></label>
+      </div>
+      <p class="small" style="margin:2px 0 0">暮らしは、夜勤・時短・家族の時間に関係する動画のときだけチェックしてね。</p>
+      <div class="row">
+        <button id="stockBtn">📦 ネタをストック</button>
+      </div>
+      <div class="status" id="stockStatus"></div>
     </div>
   </section>
 
@@ -438,6 +450,7 @@
     $("myView").value = "";
     $("draftOut").classList.add("hidden");
     setStatus($("draftStatus"), "");
+    setStatus($("stockStatus"), "");
     $("resultCard").classList.remove("hidden");
     setStatus($("saveStatus"), r.saved ? "この要約は保存済みです" : "", r.saved ? "ok" : "");
   }
@@ -688,6 +701,62 @@ ${m.rule}${extra ? "\n" + extra : ""}
     } catch (e) {
       if (e && e.name === "AbortError") return;
       setStatus($("draftStatus"), "保存できませんでした:" + esc(e.message || e), "ng");
+    }
+  };
+
+  // ---------- ネタのストック(土曜の週次タスクが見出しごとに使う) ----------
+  const STOCK_FILE = "動画ネタストック.md";
+  const STOCK_HEADS = { x: "X(仕事×AI)", th_ai: "Threads(仕事×AI)", th_papa: "Threads(暮らし)" };
+  const STOCK_TOP = `# 動画ネタストック
+
+YouTube要約メーカーの「📦 ネタをストック」で貯まる、動画から借りた「考え方1つ」と自分の体験メモ。土曜の週次タスクが、自分の見出しから週1〜2本まで使う。新しいものが上。
+
+- 使うときは、考え方をまるごと自分の言葉に言い換える(動画の言い回し・手法名・決めゼリフは使わない。出典は書かない)。根拠:[[2026-10-17_YouTube要約を投稿・記事にするときの著作権]]
+- 体験は「体験・意見」に書いてあることだけ使う。「(なし)」なら体験の所は＿＿の穴あきにする
+- 使ったら \`- [ ]\` を \`- [x]\` にして、行の最後に「(使用済み YYYY-MM-DD)」を足す
+`;
+  function addToStock(text, key, idea, view, link) {
+    if (!text) text = STOCK_TOP + Object.values(STOCK_HEADS).map((h) => `\n## ${h}\n`).join("");
+    const head = `## ${STOCK_HEADS[key]}`;
+    let lines = text.split("\n");
+    let at = lines.findIndex((l) => l.trim() === head);
+    if (at < 0) { lines.push("", head); at = lines.length - 1; }
+    // 同じ見出しに同じ考え方がもうあれば足さない
+    let end = lines.findIndex((l, i) => i > at && l.startsWith("## "));
+    if (end < 0) end = lines.length;
+    if (lines.slice(at, end).some((l) => l.includes(`考え方:${idea}`))) return { text, added: false };
+    lines.splice(at + 1, 0, `- [ ] ${today()} 考え方:${idea}`, `  - 体験・意見:${view || "(なし)"}`, `  - 元の要約:[[${link}]]`);
+    return { text: lines.join("\n"), added: true };
+  }
+  $("stockBtn").onclick = async () => {
+    if (!current) return;
+    if (!canPickDir) return setStatus($("stockStatus"), "ストックはパソコンだけです。スマホは「未保存URLをまとめてコピー」→パソコンで要約し直してストックしてね", "ng");
+    const sel = document.querySelector('input[name="idea"]:checked');
+    if (!sel) return setStatus($("stockStatus"), "①で使う考え方を1つ選んでください", "ng");
+    const keys = [...document.querySelectorAll(".stockTo input:checked")].map((x) => x.value);
+    if (!keys.length) return setStatus($("stockStatus"), "ストックする先に1つ以上チェックを入れてください", "ng");
+    const idea = current.data.points[+sel.value].replace(/\s+/g, " ").trim();
+    const view = $("myView").value.replace(/\s+/g, " ").trim();
+    try {
+      const dir = await ensureDir();
+      // 元の要約にリンクできるように、まだなら要約も保存する
+      if (!current.saved) { await writeToDir(current); markSaved(current); }
+      let text = "";
+      try { text = await (await (await dir.getFileHandle(STOCK_FILE)).getFile()).text(); } catch {}
+      const added = [], skipped = [];
+      for (const k of keys) {
+        const r = addToStock(text, k, idea, view, fileName(current).replace(/\.md$/, ""));
+        text = r.text; (r.added ? added : skipped).push(STOCK_HEADS[k]);
+      }
+      const w = await (await dir.getFileHandle(STOCK_FILE, { create: true })).createWritable();
+      await w.write(text); await w.close();
+      const parts = [];
+      if (added.length) parts.push(`${added.join("・")}にストックしました`);
+      if (skipped.length) parts.push(`${skipped.join("・")}は同じネタがもう入っています`);
+      setStatus($("stockStatus"), parts.join("。") + (view ? "" : "。体験メモが空なので、投稿では＿＿の穴あきになります"), "ok");
+    } catch (e) {
+      if (e && e.name === "AbortError") return;
+      setStatus($("stockStatus"), "ストックできませんでした:" + esc(e.message || e), "ng");
     }
   };
 
